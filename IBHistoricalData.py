@@ -112,7 +112,7 @@ if __name__ == "__main__":
     contract.symbol = "SPY"
     contract.secType = "STK"
     contract.currency = "USD"
-    contract.exchange = "ARCA"
+    contract.exchange = "SMART"
 
     dt_range = pd.date_range(start="20220328 23:59:59", end="20220401 23:59:59", freq="24H")
 

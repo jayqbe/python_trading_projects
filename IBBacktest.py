@@ -8,10 +8,20 @@ import numpy as np
 from datetime import timedelta
 
 
+# Define global variables
+RESOLUTION = 15  # Set bar size in minutes
+TICK_SIZE = .01  # Set smallest increment for the instrument
+FIBO = .169  # Set fibo level
+MIN_BAR = .0  # Set minimal bar size
+MAX_BAR = 999.  # Set maximal bar size
+START_CASH = 100000  # Set starting account value
+POS_SIZE = 50  # Set position size for the instrument
+
+
 class TestStrategy(bt.Strategy):
     params = (
-        ("fibo", .169),
-        ("hilo_range", (0., 999.),),
+        ("fibo", FIBO),
+        ("hilo_range", (MIN_BAR, MAX_BAR),),
     )
 
     def __init__(self):
@@ -94,64 +104,98 @@ class TestStrategy(bt.Strategy):
                                 self.broker.cancel(order)
 
                         # Long bracket setup
-                        stop_long = np.round(self.resampledhigh[0] * 4) / 4 + .25  # Parent order stop price
+                        stop_long = np.round(self.resampledhigh[0] * (1 / TICK_SIZE)) / \
+                                            (1 / TICK_SIZE) + TICK_SIZE  # Parent order stop price
 
-                        limit_long = np.round((self.resampledhigh[0]) * 4) / 4 + .25  # Parent order limit price
+                        limit_long = np.round((self.resampledhigh[0]) * (1 / TICK_SIZE)) / \
+                                             (1 / TICK_SIZE) + TICK_SIZE  # Parent order limit price
 
-                        tp_stop_long = np.max([np.round((self.resampledhigh[0] + (
-                                self.resampledhigh[0] - self.resampledlow[0]) * self.params.fibo) * 4) / 4,
-                                               limit_long + .25])  # Take profit stop price
+                        tp_stop_long = np.max(
+                            [np.round((self.resampledhigh[0] + (self.resampledhigh[0] - self.resampledlow[0]) *
+                                       self.params.fibo) * (1 / TICK_SIZE)) / (1 / TICK_SIZE),
+                             limit_long + TICK_SIZE])  # Take profit stop price
 
-                        tp_limit_long = np.max([np.round((self.resampledhigh[0] + (
-                                self.resampledhigh[0] - self.resampledlow[0]) * self.params.fibo) * 4) / 4,
-                                                limit_long + .25])  # Take profit limit price
+                        tp_limit_long = np.max(
+                            [np.round((self.resampledhigh[0] + (self.resampledhigh[0] - self.resampledlow[0]) *
+                                       self.params.fibo) * (1 / TICK_SIZE)) / (1 / TICK_SIZE),
+                             limit_long + TICK_SIZE])  # Take profit limit price
 
                         sl_stop_long = np.round(
-                            (self.resampledhigh[0] - (self.resampledhigh[0] - self.resampledlow[0]) / 2) * 4
-                        ) / 4 + .25  # Stop loss stop price
+                            (self.resampledhigh[0] - (self.resampledhigh[0] - self.resampledlow[0]) /
+                             2) * (1 / TICK_SIZE)) / (1 / TICK_SIZE) + TICK_SIZE  # Stop loss stop price
 
                         sl_limit_long = np.round(
-                            (self.resampledhigh[0] - (self.resampledhigh[0] - self.resampledlow[0]) / 2) * 4
-                        ) / 4  # Stop loss limit price
+                            (self.resampledhigh[0] - (self.resampledhigh[0] - self.resampledlow[0]) /
+                             2) * (1 / TICK_SIZE)) / (1 / TICK_SIZE)  # Stop loss limit price
 
-                        parent_long = self.buy(exectype=bt.Order.StopLimit, price=stop_long, plimit=limit_long,
-                                               valid=timedelta(minutes=30), transmit=False)
-                        take_profit_long = self.sell(exectype=bt.Order.StopLimit, price=tp_limit_long,
-                                                     plimit=tp_stop_long, transmit=False, parent=parent_long)
-                        stop_loss_long = self.sell(exectype=bt.Order.StopLimit, price=sl_limit_long,
-                                                   plimit=sl_stop_long, transmit=True, parent=parent_long)
+                        parent_long = self.buy(
+                            exectype=bt.Order.StopLimit,
+                            price=stop_long,
+                            plimit=limit_long,
+                            valid=timedelta(minutes=30),
+                            transmit=False
+                        )
+                        take_profit_long = self.sell(
+                            exectype=bt.Order.StopLimit,
+                            price=tp_limit_long,
+                            plimit=tp_stop_long,
+                            transmit=False,
+                            parent=parent_long
+                        )
+                        stop_loss_long = self.sell(
+                            exectype=bt.Order.StopLimit,
+                            price=sl_limit_long,
+                            plimit=sl_stop_long,
+                            transmit=True,
+                            parent=parent_long
+                        )
 
                         self.log(f"BUY BRACKET, parent stop: {stop_long}, parent limit: {limit_long}, "
                                  f"take profit stop: {tp_stop_long}, take profit limit: {tp_limit_long}, "
                                  f"stop loss stop: {sl_stop_long}, stop loss limit {sl_limit_long}")
 
                         # Short bracket setup
-                        stop_short = np.round(self.resampledlow[0] * 4) / 4 - .25
+                        stop_short = np.round(self.resampledlow[0] * (1 / TICK_SIZE)) / (1 / TICK_SIZE) - TICK_SIZE
 
-                        limit_short = np.round((self.resampledlow[0]) * 4) / 4 - .25
+                        limit_short = np.round((self.resampledlow[0]) * (1 / TICK_SIZE)) / (1 / TICK_SIZE) - TICK_SIZE
 
-                        tp_stop_short = np.min([np.round((self.resampledlow[0] - (
-                                    self.resampledhigh[0] - self.resampledlow[0]) * self.params.fibo) * 4) / 4,
-                                                 limit_short - .25])
+                        tp_stop_short = np.min(
+                            [np.round((self.resampledlow[0] - (self.resampledhigh[0] - self.resampledlow[0]) *
+                                       self.params.fibo) * (1 / TICK_SIZE)) / (1 / TICK_SIZE), limit_short - TICK_SIZE])
 
-                        tp_limit_short = np.min([np.round((self.resampledlow[0] - (
-                                    self.resampledhigh[0] - self.resampledlow[0]) * self.params.fibo) * 4) / 4,
-                                                 limit_short - .25])
+                        tp_limit_short = np.min(
+                            [np.round((self.resampledlow[0] - (self.resampledhigh[0] - self.resampledlow[0]) *
+                                       self.params.fibo) * (1 / TICK_SIZE)) / (1 / TICK_SIZE), limit_short - TICK_SIZE])
 
                         sl_stop_short = np.round(
-                            (self.resampledlow[0] + (self.resampledhigh[0] - self.resampledlow[0]) / 2) * 4
-                        ) / 4 - .25
+                            (self.resampledlow[0] + (self.resampledhigh[0] - self.resampledlow[0]) / 2) *
+                            (1 / TICK_SIZE)) / (1 / TICK_SIZE) - TICK_SIZE
 
                         sl_limit_short = np.round(
-                            (self.resampledlow[0] + (self.resampledhigh[0] - self.resampledlow[0]) / 2) * 4
-                        ) / 4
+                            (self.resampledlow[0] + (self.resampledhigh[0] - self.resampledlow[0]) / 2) *
+                            (1 / TICK_SIZE)) / (1 / TICK_SIZE)
 
-                        parent_short = self.sell(price=stop_short, exectype=bt.Order.StopLimit, plimit=limit_short,
-                                                 valid=timedelta(minutes=30), transmit=False)
-                        take_profit_short = self.buy(price=tp_limit_short, exectype=bt.Order.StopLimit,
-                                                     plimit=tp_stop_short, transmit=False, parent=parent_short)
-                        stop_loss_short = self.buy(price=sl_limit_short, exectype=bt.Order.StopLimit,
-                                                   plimit=sl_stop_short, transmit=True, parent=parent_short)
+                        parent_short = self.sell(
+                            price=stop_short,
+                            exectype=bt.Order.StopLimit,
+                            plimit=limit_short,
+                            valid=timedelta(minutes=30),
+                            transmit=False
+                        )
+                        take_profit_short = self.buy(
+                            price=tp_limit_short,
+                            exectype=bt.Order.StopLimit,
+                            plimit=tp_stop_short,
+                            transmit=False,
+                            parent=parent_short
+                        )
+                        stop_loss_short = self.buy(
+                            price=sl_limit_short,
+                            exectype=bt.Order.StopLimit,
+                            plimit=sl_stop_short,
+                            transmit=True,
+                            parent=parent_short
+                        )
 
                         self.log(f"SELL BRACKET, parent stop: {stop_short}, parent limit: {limit_short}, "
                                  f"take profit stop: {tp_stop_short}, take profit limit: {tp_limit_short}, "
@@ -219,21 +263,12 @@ class TestStrategy(bt.Strategy):
 
 if __name__ == "__main__":
     cerebro = bt.Cerebro()
-
     cerebro.addstrategy(TestStrategy)
 
-    root = Path(".", "data", "clean")  # Specify path to your file
+    root = Path(".", "data", "clean")
     my_data: pd.DataFrame = pd.read_hdf(str(root) + "/2021_all_spy_1min.h5", "df")
-    my_data = my_data.reindex(
-        index=pd.date_range(
-            start=my_data.index[0],
-            end=my_data.index[-1],
-            freq='1 min'
-        ),
-        method='ffill'
-    )
 
-    my_aux_data = my_data.resample("15T").agg(
+    my_aux_data = my_data.resample(f"{RESOLUTION}T").agg(
         {
             "open": "first",
             "high": "max",
@@ -244,15 +279,12 @@ if __name__ == "__main__":
     )
     my_aux_data.dropna(inplace=True)
     my_aux_data = my_aux_data.reindex(
-        index=pd.date_range(
-            start=my_data.index[0],
-            end=my_data.index[-1],
-            freq='1 min'
-        ),
+        index=my_data.index,
         method='ffill'
     )
-    my_aux_data = my_aux_data.shift(15).shift(-1)
+    my_aux_data = my_aux_data.shift(RESOLUTION).shift(-1)
 
+    # Comment out next two lines if you want to backtest full date range
     my_data = my_data.loc['2021-01']
     my_aux_data = my_aux_data.loc['2021-01']
 
@@ -262,10 +294,10 @@ if __name__ == "__main__":
     cerebro.adddata(data_feed)
     cerebro.adddata(aux_feed)
 
-    cerebro.broker.setcash(100000)
-    cerebro.addsizer(bt.sizers.FixedSize, stake=50)
+    cerebro.broker.setcash(START_CASH)
+    cerebro.addsizer(bt.sizers.FixedSize, stake=POS_SIZE)
 
-    # cerebro.broker.setcommission(commission=1, margin=0., mult=1)
+    # cerebro.broker.setcommission(commission=1, margin=0., mult=1)  # Define commission, required margin and leverage
 
     cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name="trade_analysis")
     cerebro.addwriter(bt.WriterFile, csv=False)

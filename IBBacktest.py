@@ -9,7 +9,7 @@ from datetime import timedelta
 
 
 # Define global variables
-RESOLUTION = 15  # Set bar size in minutes
+RESOLUTION = 3  # Set bar size in minutes
 TICK_SIZE = .01  # Set smallest increment for the instrument
 FIBO = .169  # Set fibo level
 MIN_BAR = .0  # Set minimal bar size
@@ -90,7 +90,7 @@ class TestStrategy(bt.Strategy):
 
         if not self.position:
 
-            if self.datas[0].datetime.time().minute in [14, 29, 44, 59]:
+            if self.datas[0].datetime.time().minute in [(x + 1) * RESOLUTION - 1 for x in range(int(60 / RESOLUTION))]:
 
                 if self.resampledhigh[0] < self.resampledhigh[-1] and self.resampledlow[0] > self.resampledlow[-1]:
 
@@ -132,7 +132,7 @@ class TestStrategy(bt.Strategy):
                             exectype=bt.Order.StopLimit,
                             price=stop_long,
                             plimit=limit_long,
-                            valid=timedelta(minutes=30),
+                            valid=timedelta(minutes=RESOLUTION * 2),
                             transmit=False
                         )
                         take_profit_long = self.sell(
@@ -179,7 +179,7 @@ class TestStrategy(bt.Strategy):
                             price=stop_short,
                             exectype=bt.Order.StopLimit,
                             plimit=limit_short,
-                            valid=timedelta(minutes=30),
+                            valid=timedelta(minutes=RESOLUTION * 2),
                             transmit=False
                         )
                         take_profit_short = self.buy(
@@ -300,7 +300,7 @@ if __name__ == "__main__":
     # cerebro.broker.setcommission(commission=1, margin=0., mult=1)  # Define commission, required margin and leverage
 
     cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name="trade_analysis")
-    cerebro.addwriter(bt.WriterFile, csv=False)
+    # cerebro.addwriter(bt.WriterFile, csv=False)
 
     portfolio_start = cerebro.broker.getvalue()
 
